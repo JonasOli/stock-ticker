@@ -5,7 +5,7 @@ function App() {
   const [stockData, setStockData] = useState<any>({});
 
   useEffect(() => {
-    const es = new EventSource("http://localhost:8080/events");
+    const es = new EventSource("http://localhost:8080/stock-events");
 
     es.onopen = () => console.log(">>> Connection opened!");
 

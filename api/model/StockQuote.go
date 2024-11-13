@@ -1,6 +1,6 @@
-package pkg
+package model
 
-type StockQuote struct {
+type HistoricalPrices struct {
 	Symbol    string  `json:"symbol"`
 	Price     float32 `json:"price"`
 	Open      float32 `json:"open"`
