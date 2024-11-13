@@ -39,11 +39,22 @@ func (s *SSEManager) StockTickerEventsHandler(c *gin.Context) {
 	finnhubClient := finnhub.NewAPIClient(cfg).DefaultApi
 
 	conn, err := database.ConnectClickHouse()
+
 	if err != nil {
 		log.Fatalf("could not connect to ClickHouse: %v", err)
 	}
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
+	loc, timeErr := time.LoadLocation("America/New_York")
+
+	if timeErr != nil {
+		fmt.Println("Error loading timezone:", timeErr)
+		return
+	}
+
+	now := time.Now().In(loc)
+	marketOpen := time.Date(now.Year(), now.Month(), now.Day(), 9, 30, 0, 0, loc)
+	marketClose := time.Date(now.Year(), now.Month(), now.Day(), 16, 0, 0, 0, loc)
 
 	defer func() {
 		ticker.Stop()
@@ -56,56 +67,52 @@ func (s *SSEManager) StockTickerEventsHandler(c *gin.Context) {
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
 
-	for {
-		select {
-		case <-ticker.C:
-			// Fetch stock quote for a given symbol
-			symbol := "GOOG"
-			quote, _, err := finnhubClient.Quote(context.Background()).Symbol(symbol).Execute()
-
-			if err != nil {
-				log.Printf("Error fetching stock details: %v", err)
-				return
-			}
-
-			stockQuote := model.HistoricalPrices{
-				Symbol:    symbol,
-				Price:     *quote.C,
-				Open:      *quote.O,
-				High:      *quote.H,
-				Low:       *quote.L,
-				PrevClose: *quote.Pc,
-			}
-
-			insertHistoricalPrices := `
-				INSERT INTO stock_ticker.HistoricalPrices
-				(
-					ticker_symbol
-					, date
-					, open_price
-					, high_price
-					, low_price
-					, close_price
-					, adjusted_close
-					, volume
-					, created_at
-				)
-				VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);`
-
-			if _, err := conn.Exec(insertHistoricalPrices, symbol, time.Now().Format("2006-01-02"), *quote.O, *quote.H, *quote.L, *quote.Pc, 0, 0, time.Now().Format("2006-01-02 15:04:05")); err != nil {
-				log.Fatalf("failed to insert data: %v", err)
-			}
-
-			stockQuoteJson, jErr := json.Marshal(stockQuote)
-
-			if jErr != nil {
-				fmt.Println(err)
-				return
-			}
-
-			fmt.Fprintf(c.Writer, "data: %+v\n\n", string(stockQuoteJson))
-
-			flusher.Flush()
+	for range ticker.C {
+		if now.Before(marketOpen) || now.After(marketClose) {
+			return
 		}
+
+		// Fetch stock quote for a given symbol
+		symbol := "GOOG"
+		quote, _, quoteErr := finnhubClient.Quote(context.Background()).Symbol(symbol).Execute()
+
+		if quoteErr != nil {
+			log.Printf("Error fetching stock details: %v", quoteErr)
+			return
+		}
+
+		createdAt := time.Now().Format("2006-01-02 15:04:05")
+
+		stockQuote := model.StockPrice{
+			Symbol:    symbol,
+			Price:     *quote.C,
+			CreatedAt: createdAt,
+		}
+
+		insertStockPrices := `
+				INSERT INTO stock_ticker.StockQuotes
+					(ticker_symbol, price, created_at)
+				VALUES
+					(?, ?, ?);`
+
+		if _, err = conn.Exec(
+			insertStockPrices,
+			stockQuote.Symbol,
+			stockQuote.Price,
+			stockQuote.CreatedAt,
+		); err != nil {
+			log.Fatalf("failed to insert data: %v", err)
+		}
+
+		stockQuoteJson, jErr := json.Marshal(stockQuote)
+
+		if jErr != nil {
+			log.Fatalf("Error on Json: %v", err)
+			return
+		}
+
+		fmt.Fprintf(c.Writer, "data: %+v\n\n", string(stockQuoteJson))
+
+		flusher.Flush()
 	}
 }

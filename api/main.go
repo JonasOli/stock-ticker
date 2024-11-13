@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"stockTicker/server"
-	"stockTicker/database"
 )
 
 func main() {
