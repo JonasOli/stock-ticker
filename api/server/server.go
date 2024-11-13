@@ -1,7 +1,7 @@
 package server
 
 import (
-    "stockTicker/utils"
+    "stockTicker/handlers"
 
     "github.com/gin-gonic/gin"
 )
@@ -12,11 +12,11 @@ type Server struct {
 
 func NewServer() *Server {
     engine := gin.Default()
-    sseManager := utils.NewSSEManager()
+    sseManager := handlers.NewSSEManager()
     
     // engine.GET("/api/messages", handlers.GetMessages)
     // engine.POST("/api/messages", handlers.CreateMessage)
-    engine.GET("/stock-events", sseManager.StockTickerEventsHandler)
+    engine.GET("/stock-events", sseManager.StockTickerLiveUpdates)
 
     return &Server{engine: engine}
 }

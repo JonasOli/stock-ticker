@@ -12,7 +12,7 @@ function App() {
     es.onerror = (e) => console.log("ERROR!", e);
 
     es.onmessage = (e) => {
-      console.log(e.data, "e.data");
+      // console.log(e.data, "e.data");
 
       setStockData(JSON.parse(e.data));
     };
@@ -21,10 +21,13 @@ function App() {
     return () => es.close();
   }, []);
 
+  console.log(stockData,'stockData');
+  
+
   return (
     <div>
-      <p>Ticker: {stockData.symbol}</p>
-      <p>Price: {stockData.price}</p>
+      <p>Ticker: {stockData.S}</p>
+      <p>Price: {stockData.P}</p>
       <p>Open: {stockData.open}</p>
       <p>High: {stockData.high}</p>
       <p>Low: {stockData.low}</p>

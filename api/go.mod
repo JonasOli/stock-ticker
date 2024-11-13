@@ -6,6 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.30.0
 	github.com/Finnhub-Stock-API/finnhub-go/v2 v2.0.19
 	github.com/gin-gonic/gin v1.10.0
+	github.com/gorilla/websocket v1.4.2
 )
 
 require (
